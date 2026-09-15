@@ -3,7 +3,8 @@
 This repository prototypes query answering over incomplete relational data whose
 missing values are governed by a quantitative missingness graph.
 
-The first milestone is in [`experiments/mcar-single-missing`](experiments/mcar-single-missing).
+The first scenario is documented in
+[`docs/scenarios/mcar-single-missing.md`](docs/scenarios/mcar-single-missing.md).
 It uses a three-attribute table, one potentially missing binary attribute, and
 an MCAR mechanism.  The same query is evaluated in three ways:
 
@@ -16,10 +17,9 @@ See the experiment README for the model and commands.
 ## Repository structure
 
 ```text
-experiments/
-└── mcar-single-missing/
-    ├── config/   # Experiment and missingness configuration
-    ├── data/     # Reproducible data artifacts
-    ├── models/   # Plingo and ProbLog encodings
-    └── scripts/  # Generation and validation utilities
+config/                 # Scenario configuration
+data/                   # Scenario datasets and generated artifacts
+models/                 # Scenario-specific PASP encodings
+scripts/                # Shared generation and validation utilities
+docs/scenarios/         # Scenario documentation
 ```

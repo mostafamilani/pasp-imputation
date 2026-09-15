@@ -6,7 +6,7 @@ import csv
 import json
 from pathlib import Path
 
-EXPERIMENT_DIR = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 
 def derive_blocks(observed_path: Path, graph_path: Path) -> list[dict[str, object]]:
@@ -40,9 +40,9 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
-    rendered = render_csv(derive_blocks(EXPERIMENT_DIR / "data" / "observed.csv", EXPERIMENT_DIR / "config" / "missingness-graph.json"))
+    rendered = render_csv(derive_blocks(PROJECT_ROOT / "data" / "mcar-single-missing" / "observed.csv", PROJECT_ROOT / "config" / "mcar-single-missing" / "missingness-graph.json"))
     if args.check:
-        if rendered != (EXPERIMENT_DIR / "data" / "blocks.csv").read_text(encoding="utf-8"):
+        if rendered != (PROJECT_ROOT / "data" / "mcar-single-missing" / "blocks.csv").read_text(encoding="utf-8"):
             raise SystemExit("derived blocks differ from blocks.csv")
         print("blocks.csv matches the observed table and MCAR graph")
     else:

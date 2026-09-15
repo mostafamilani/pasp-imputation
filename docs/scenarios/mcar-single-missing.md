@@ -40,9 +40,9 @@ Its expected probability is `0.7 * 0.2 = 0.14`.
 
 ## Encodings
 
-- `models/direct-bid.lp` generates exactly one completion per incomplete row and gives
+- `models/mcar-single-missing/direct-bid.lp` generates exactly one completion per incomplete row and gives
   each selected completion its categorical log-weight.
-- `models/conditioned-tid.plp` starts with independent Bernoulli candidate tuples.
+- `models/mcar-single-missing/conditioned-tid.plp` starts with independent Bernoulli candidate tuples.
   Their odds equal the desired BID probabilities. Hard evidence then conditions
   this TID on exactly one candidate per block.
 - `scripts/enumerate_worlds.py` explicitly enumerates the four BID worlds and acts as a
@@ -54,13 +54,13 @@ From the repository root:
 
 ```bash
 PYTHONPATH=.vendor .vendor/bin/plingo \
-  experiments/mcar-single-missing/models/direct-bid.lp
+  models/mcar-single-missing/direct-bid.lp
 
 PYTHONPATH=.vendor .vendor/bin/plingo \
   --frontend=problog \
-  experiments/mcar-single-missing/models/conditioned-tid.plp
+  models/mcar-single-missing/conditioned-tid.plp
 
-python3 experiments/mcar-single-missing/scripts/enumerate_worlds.py
+python3 scripts/enumerate_worlds.py
 ```
 
 All three query probabilities should be `0.14`, modulo Plingo's printed
@@ -71,7 +71,7 @@ five-decimal rounding.
 
 The person relation is only this experiment's configured example. The generator
 uses the schema, domains, record count, and Bayesian-network nodes in
-`config/experiment.json`.
+`config/mcar-single-missing/experiment.json`.
 
 For a synthetic dataset, set `dataset.source` to `synthetic`. The default
 `iid` method samples every non-key attribute in topological node order from
@@ -84,7 +84,7 @@ To inject missingness into an existing complete CSV instead, use:
 ```json
 "dataset": {
   "source": "csv",
-  "input": "data/my-complete-data.csv"
+  "input": "data/mcar-single-missing/my-complete-data.csv"
 }
 ```
 

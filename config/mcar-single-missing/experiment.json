@@ -55,9 +55,9 @@
     ]
   },
   "files": {
-    "complete": "data/complete.csv",
-    "observed": "data/observed.csv",
-    "blocks": "data/blocks.csv",
-    "missingness_graph": "config/missingness-graph.json"
+    "complete": "data/mcar-single-missing/complete.csv",
+    "observed": "data/mcar-single-missing/observed.csv",
+    "blocks": "data/mcar-single-missing/blocks.csv",
+    "missingness_graph": "config/mcar-single-missing/missingness-graph.json"
   }
 }

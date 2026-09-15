@@ -7,7 +7,7 @@ import random
 from itertools import product
 from pathlib import Path
 
-EXPERIMENT_DIR = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 
 def read_csv(path: Path) -> list[dict[str, str]]:
@@ -16,7 +16,7 @@ def read_csv(path: Path) -> list[dict[str, str]]:
 
 
 def main() -> None:
-    config = json.loads((EXPERIMENT_DIR / "config" / "experiment.json").read_text(encoding="utf-8"))
+    config = json.loads((PROJECT_ROOT / "config" / "mcar-single-missing" / "experiment.json").read_text(encoding="utf-8"))
     files = config["files"]
     generation = config["generation"]
     missingness = config["missingness"]
@@ -38,11 +38,11 @@ def main() -> None:
                 "disease": missingness["missing_token"] if is_missing else disease,
             })
 
-    assert generated_complete == read_csv(EXPERIMENT_DIR / files["complete"])
-    assert generated_observed == read_csv(EXPERIMENT_DIR / files["observed"])
+    assert generated_complete == read_csv(PROJECT_ROOT / files["complete"])
+    assert generated_observed == read_csv(PROJECT_ROOT / files["observed"])
 
     observed = generated_observed
-    materialized_blocks = read_csv(EXPERIMENT_DIR / files["blocks"])
+    materialized_blocks = read_csv(PROJECT_ROOT / files["blocks"])
     expected_blocks: list[dict[str, str]] = []
     for row in observed:
         if row["disease"] != missingness["missing_token"]:

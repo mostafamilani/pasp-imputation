@@ -10,7 +10,4 @@ __pycache__/
 .DS_Store
 
 # Local research material
-*.pdf
-*.zip
-*.mp4
-~bertossi/
+papers/

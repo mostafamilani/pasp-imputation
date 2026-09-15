@@ -7,7 +7,7 @@ import json
 import random
 from pathlib import Path
 
-EXPERIMENT_DIR = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 
 def read_csv(path):
@@ -50,7 +50,7 @@ def validate(rows, config):
 def complete_records(config, rng):
     dataset = config["dataset"]
     if dataset["source"] == "csv":
-        rows = read_csv((EXPERIMENT_DIR / dataset["input"]).resolve())
+        rows = read_csv((PROJECT_ROOT / dataset["input"]).resolve())
         validate(rows, config)
         return rows
     if dataset["source"] != "synthetic":
@@ -111,8 +111,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
-    config = json.loads((EXPERIMENT_DIR / "config" / "experiment.json").read_text())
-    graph = json.loads((EXPERIMENT_DIR / config["files"]["missingness_graph"]).read_text())
+    config = json.loads((PROJECT_ROOT / "config" / "mcar-single-missing" / "experiment.json").read_text())
+    graph = json.loads((PROJECT_ROOT / config["files"]["missingness_graph"]).read_text())
     seeds = config.get("sampling_seeds", {})
     data_rng = random.Random(seeds.get("complete_data", config["seed"]))
     missing_rng = random.Random(seeds.get("missingness", config["seed"]))
@@ -120,12 +120,12 @@ def main():
     observed = inject_missingness(complete, graph, missing_rng)
 
     if args.check:
-        assert complete == read_csv(EXPERIMENT_DIR / config["files"]["complete"])
-        assert observed == read_csv(EXPERIMENT_DIR / config["files"]["observed"])
+        assert complete == read_csv(PROJECT_ROOT / config["files"]["complete"])
+        assert observed == read_csv(PROJECT_ROOT / config["files"]["observed"])
         print("complete and observed data match the configured pipeline")
     else:
-        write_csv(EXPERIMENT_DIR / config["files"]["complete"], complete)
-        write_csv(EXPERIMENT_DIR / config["files"]["observed"], observed)
+        write_csv(PROJECT_ROOT / config["files"]["complete"], complete)
+        write_csv(PROJECT_ROOT / config["files"]["observed"], observed)
 
 
 if __name__ == "__main__":
