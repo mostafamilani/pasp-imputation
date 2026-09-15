@@ -9,15 +9,17 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 
-def derive_blocks(observed_path: Path, graph_path: Path) -> list[dict[str, object]]:
-    graph = json.loads(graph_path.read_text(encoding="utf-8"))
-    if graph["mechanism"] != "MCAR":
+def derive_blocks(observed_path: Path, config_path: Path) -> list[dict[str, object]]:
+    config = json.loads(config_path.read_text(encoding="utf-8"))
+    missingness = config["missingness"]
+    if missingness["mechanism"] != "MCAR":
         raise ValueError("This milestone intentionally supports MCAR only")
-    distributions = graph["disease_given_group"]
+    distributions = config["generation"]["disease_given_group"]
+    missing_token = missingness["missing_token"]
     blocks: list[dict[str, object]] = []
     with observed_path.open(newline="", encoding="utf-8") as handle:
         for row in csv.DictReader(handle):
-            if row["disease"] != "na":
+            if row["disease"] != missing_token:
                 continue
             conditional = distributions[row["group"]]
             if abs(sum(conditional.values()) - 1.0) > 1e-12:
@@ -40,7 +42,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
-    rendered = render_csv(derive_blocks(PROJECT_ROOT / "data" / "mcar-single-missing" / "observed.csv", PROJECT_ROOT / "config" / "mcar-single-missing" / "missingness-graph.json"))
+    rendered = render_csv(derive_blocks(PROJECT_ROOT / "data" / "mcar-single-missing" / "observed.csv", PROJECT_ROOT / "config" / "mcar-single-missing" / "experiment.json"))
     if args.check:
         if rendered != (PROJECT_ROOT / "data" / "mcar-single-missing" / "blocks.csv").read_text(encoding="utf-8"):
             raise SystemExit("derived blocks differ from blocks.csv")

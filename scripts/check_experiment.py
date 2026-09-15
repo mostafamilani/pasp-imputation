@@ -30,7 +30,7 @@ def main() -> None:
         for _ in range(count):
             row_id += 1
             disease = "yes" if rng.random() < probability_yes else "no"
-            is_missing = rng.random() < missingness["probability"]
+            is_missing = rng.random() < missingness["rules"][0]["probability_missing"]
             generated_complete.append({"id": str(row_id), "group": group, "disease": disease})
             generated_observed.append({
                 "id": str(row_id),

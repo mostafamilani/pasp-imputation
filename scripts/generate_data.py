@@ -94,7 +94,7 @@ def inject_missingness(complete, graph, rng):
     token = graph.get("missing_token", "na")
     observed = [row.copy() for row in complete]
     for source, target in zip(complete, observed):
-        for rule in graph["missingness"]:
+        for rule in graph["rules"]:
             if rng.random() < probability_missing(rule, source):
                 target[rule["attribute"]] = token
     return observed
@@ -112,7 +112,7 @@ def main():
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
     config = json.loads((PROJECT_ROOT / "config" / "mcar-single-missing" / "experiment.json").read_text())
-    graph = json.loads((PROJECT_ROOT / config["files"]["missingness_graph"]).read_text())
+    graph = config["missingness"]
     seeds = config.get("sampling_seeds", {})
     data_rng = random.Random(seeds.get("complete_data", config["seed"]))
     missing_rng = random.Random(seeds.get("missingness", config["seed"]))

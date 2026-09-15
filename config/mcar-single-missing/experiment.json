@@ -41,10 +41,21 @@
   },
   "missingness": {
     "mechanism": "MCAR",
-    "attribute": "disease",
-    "indicator": "missing_disease",
     "missing_token": "na",
-    "probability": 0.35
+    "variables": ["group", "disease", "missing_disease", "observed_disease"],
+    "edges": [
+      ["group", "disease"],
+      ["disease", "observed_disease"],
+      ["missing_disease", "observed_disease"]
+    ],
+    "rules": [
+      {
+        "attribute": "disease",
+        "indicator": "missing_disease",
+        "parents": [],
+        "probability_missing": 0.35
+      }
+    ]
   },
   "query": {
     "name": "answer",
@@ -57,7 +68,6 @@
   "files": {
     "complete": "data/mcar-single-missing/complete.csv",
     "observed": "data/mcar-single-missing/observed.csv",
-    "blocks": "data/mcar-single-missing/blocks.csv",
-    "missingness_graph": "config/mcar-single-missing/missingness-graph.json"
+    "blocks": "data/mcar-single-missing/blocks.csv"
   }
 }
