@@ -1,0 +1,31 @@
+% Each candidate completion begins as an independent Bernoulli tuple.
+% If the desired categorical block probability is p, use q=p/(1+p), so the
+% Bernoulli odds q/(1-q) equal p. Conditioning on exactly one candidate then
+% recovers the original categorical probabilities.
+chosen(2,yes) :- &problog("0.4117647058823529"). % 0.7 / 1.7
+chosen(2,no)  :- &problog("0.23076923076923075"). % 0.3 / 1.3
+chosen(5,yes) :- &problog("0.16666666666666669"). % 0.2 / 1.2
+chosen(5,no)  :- &problog("0.4444444444444445").  % 0.8 / 1.8
+
+% Eligibility evidence: exactly one completion must be selected per block.
+some(2) :- chosen(2,yes).
+some(2) :- chosen(2,no).
+some(5) :- chosen(5,yes).
+some(5) :- chosen(5,no).
+:- not some(2).
+:- not some(5).
+:- chosen(2,yes), chosen(2,no).
+:- chosen(5,yes), chosen(5,no).
+
+person(1,a,yes).
+person(3,a,yes).
+person(4,b,no).
+person(6,b,no).
+person(2,a,Disease) :- chosen(2,Disease).
+person(5,b,Disease) :- chosen(5,Disease).
+
+answer :- person(2,a,yes), person(5,b,yes).
+&query(answer).
+
+#show chosen/2.
+#show answer/0.

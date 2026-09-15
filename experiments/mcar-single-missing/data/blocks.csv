@@ -1,0 +1,5 @@
+block_id,row_id,group,disease,probability
+2,2,a,yes,0.7
+2,2,a,no,0.3
+5,5,b,yes,0.2
+5,5,b,no,0.8

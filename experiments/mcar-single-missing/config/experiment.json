@@ -1,0 +1,63 @@
+{
+  "experiment": "mcar-single-missing",
+  "seed": 1,
+  "sampling_seeds": {"complete_data": 8, "missingness": 58},
+  "relation": {
+    "name": "person",
+    "attributes": [
+      {"name": "id", "type": "integer"},
+      {"name": "group", "type": "categorical", "domain": ["a", "b"]},
+      {"name": "disease", "type": "categorical", "domain": ["yes", "no"], "may_be_missing": true}
+    ],
+    "key": ["id"]
+  },
+  "dataset": {
+    "source": "synthetic",
+    "number_of_records": 6,
+    "sampling": {
+      "method": "stratified",
+      "attribute": "group",
+      "counts": {"a": 3, "b": 3}
+    }
+  },
+  "generation": {
+    "model": "bayesian_network",
+    "nodes": [
+      {"name": "group", "parents": [], "distribution": {"a": 0.5, "b": 0.5}},
+      {
+        "name": "disease",
+        "parents": ["group"],
+        "conditional_distribution": {
+          "group=a": {"yes": 0.7, "no": 0.3},
+          "group=b": {"yes": 0.2, "no": 0.8}
+        }
+      }
+    ],
+    "rows_by_group": {"a": 3, "b": 3},
+    "disease_given_group": {
+      "a": {"yes": 0.7, "no": 0.3},
+      "b": {"yes": 0.2, "no": 0.8}
+    }
+  },
+  "missingness": {
+    "mechanism": "MCAR",
+    "attribute": "disease",
+    "indicator": "missing_disease",
+    "missing_token": "na",
+    "probability": 0.35
+  },
+  "query": {
+    "name": "answer",
+    "type": "boolean_conjunctive_query",
+    "atoms": [
+      {"relation": "person", "arguments": [2, "a", "yes"]},
+      {"relation": "person", "arguments": [5, "b", "yes"]}
+    ]
+  },
+  "files": {
+    "complete": "data/complete.csv",
+    "observed": "data/observed.csv",
+    "blocks": "data/blocks.csv",
+    "missingness_graph": "config/missingness-graph.json"
+  }
+}
