@@ -32,11 +32,14 @@ their BID blocks are `{yes: 0.7, no: 0.3}` and `{yes: 0.2, no: 0.8}`.
 
 The Boolean conjunctive query is:
 
+> Is there at least one person in group B who has the disease?
+
+
 ```text
-Person(2,a,yes) AND Person(5,b,yes)
+exists Id: Person(Id,b,yes)
 ```
 
-Its expected probability is `0.7 * 0.2 = 0.14`.
+Its expected probability is `0.2`: row 5 is the only uncertain group-b row, while rows 4 and 6 are observed no.
 
 ## Encodings
 
@@ -63,7 +66,7 @@ PYTHONPATH=.vendor .vendor/bin/plingo \
 python3 scripts/enumerate_worlds.py
 ```
 
-All three query probabilities should be `0.14`, modulo Plingo's printed
+All three query probabilities should be `0.20`, modulo Plingo's printed
 five-decimal rounding.
 
 
@@ -71,13 +74,12 @@ five-decimal rounding.
 
 The person relation is only this experiment's configured example. The generator
 uses the schema, domains, record count, and Bayesian-network nodes in
-`config/mcar-single-missing/experiment.json`.
+`config/mcar-single-missing.json`.
 
 For a synthetic dataset, set `dataset.source` to `synthetic`. The default
 `iid` method samples every non-key attribute in topological node order from
 the complete-data Bayesian network. This is the statistically natural method.
-The example uses optional `stratified` sampling to guarantee three rows from
-each group in a very small reproducible test.
+The current example uses the default IID sampling from that network.
 
 To inject missingness into an existing complete CSV instead, use:
 

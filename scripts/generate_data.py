@@ -82,21 +82,23 @@ def complete_records(config, rng):
     return rows
 
 
-def probability_missing(rule, row):
-    parents = rule.get("parents", [])
-    if not parents:
-        return rule["probability_missing"]
-    key = ",".join(f"{parent}={row[parent]}" for parent in parents)
-    return rule["conditional_probability_missing"][key]
+def probability_missing(node, row):
+    distribution = node_distribution(node, row)
+    if set(distribution) != {"missing", "observed"}:
+        raise ValueError("missingness distributions require missing/observed outcomes")
+    return distribution["missing"]
 
 
 def inject_missingness(complete, graph, rng):
     token = graph.get("missing_token", "na")
     observed = [row.copy() for row in complete]
     for source, target in zip(complete, observed):
-        for rule in graph["rules"]:
-            if rng.random() < probability_missing(rule, source):
-                target[rule["attribute"]] = token
+        context = source.copy()
+        for node in graph["nodes"]:
+            missing = rng.random() < probability_missing(node, context)
+            context[node["name"]] = "missing" if missing else "observed"
+            if missing:
+                target[node["attribute"]] = token
     return observed
 
 
@@ -111,11 +113,11 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
-    config = json.loads((PROJECT_ROOT / "config" / "mcar-single-missing" / "experiment.json").read_text())
+    config = json.loads((PROJECT_ROOT / "config" / "mcar-single-missing.json").read_text())
     graph = config["missingness"]
     seeds = config.get("sampling_seeds", {})
-    data_rng = random.Random(seeds.get("complete_data", config["seed"]))
-    missing_rng = random.Random(seeds.get("missingness", config["seed"]))
+    data_rng = random.Random(seeds.get("complete_data", config.get("seed", 0)))
+    missing_rng = random.Random(seeds.get("missingness", config.get("seed", 0)))
     complete = complete_records(config, data_rng)
     observed = inject_missingness(complete, graph, missing_rng)
 

@@ -20,16 +20,28 @@ distribution given `group`.
 ## Repository structure
 
 ```text
-config/<scenario>/       Experiment, schema, generation, missingness, and query
-data/<scenario>/         Complete data, observed data, and derived BID blocks
-models/<scenario>/       Plingo and ProbLog encodings
-scripts/                 Data-generation, block-building, and checking tools
+config/<scenario>.json   Experiment, schema, generation, and missingness
+data/<scenario>/         Complete/observed data, BID blocks, and answers
+models/<scenario>/       Reusable direct and MarkoView Plingo bases
+queries/<scenario>.json  Reusable batches of Boolean conjunctive queries
+scripts/                 Data preparation and query-answering tools
 docs/scenarios/          Additional scenario-specific explanation
 papers/                   Local references; ignored by Git
 ```
 
 The working example is `mcar-single-missing`. Its full configuration is
-[`config/mcar-single-missing/experiment.json`](config/mcar-single-missing/experiment.json).
+[`config/mcar-single-missing.json`](config/mcar-single-missing.json).
+
+## Legacy all-in-one scenario runner
+
+The original end-to-end entry point remains available for compatibility and uses
+the first query in `queries/<scenario>.json`:
+
+```bash
+python3 scripts/run_scenario.py config/mcar-single-missing.json
+```
+
+It generates `complete.csv`, `missingness-mask.csv`, `observed.csv`, `blocks.csv`, `stable-models.csv`, `tid-tuples.csv`, both Plingo models, full solver logs, and `docs/scenarios/<scenario>-report.md`. It also checks that explicit BID enumeration, direct BID Plingo inference, and conditioned-TID Plingo inference agree. For normal use, prefer the separate generation, missingness, preparation, and QA commands documented below.
 
 ## Configuration format
 
@@ -44,8 +56,7 @@ missingness pipeline. Its top-level fields are:
 | `relation` | Relation name, ordered attributes, domains, and key. |
 | `dataset` | Selects synthetic generation or an existing CSV. |
 | `generation` | Bayesian network used to sample complete synthetic records. |
-| `missingness` | Missingness graph, rules, probabilities, and missing-value token. |
-| `query` | Boolean conjunctive query to evaluate. |
+| `missingness` | Missingness BN nodes, probabilities, and missing-value token. |
 | `files` | Output paths, relative to the repository root. |
 
 ### Relation schema
@@ -81,12 +92,7 @@ is sampled.
 ```json
 "dataset": {
   "source": "synthetic",
-  "number_of_records": 6,
-  "sampling": {
-    "method": "stratified",
-    "attribute": "group",
-    "counts": {"a": 3, "b": 3}
-  }
+  "number_of_records": 6
 },
 "generation": {
   "model": "bayesian_network",
@@ -104,11 +110,8 @@ is sampled.
 }
 ```
 
-Supported sampling methods are:
-
-- `iid`: sample every modeled attribute from its distribution.
-- `stratified`: fix counts for one attribute, then sample the remaining nodes.
-  The counts must sum to `number_of_records`.
+When `sampling` is omitted, every modeled attribute is sampled IID from the
+Bayesian network. This is the default used by the example.
 
 For reproducibility, `sampling_seeds.complete_data` controls complete-data
 generation and `sampling_seeds.missingness` controls missingness injection.
@@ -130,36 +133,32 @@ synthetic sampling settings are not used in CSV mode.
 
 ### Missingness settings
 
-The `missingness` section contains both the qualitative graph and quantitative
-rules:
+The `missingness` section is a Bayesian network for missingness indicators:
 
 ```json
 "missingness": {
-  "mechanism": "MCAR",
   "missing_token": "na",
-  "variables": ["group", "disease", "missing_disease", "observed_disease"],
-  "edges": [
-    ["group", "disease"],
-    ["disease", "observed_disease"],
-    ["missing_disease", "observed_disease"]
-  ],
-  "rules": [
+  "nodes": [
     {
+      "name": "missing_disease",
       "attribute": "disease",
-      "indicator": "missing_disease",
       "parents": [],
-      "probability_missing": 0.35
+      "distribution": {"missing": 0.35, "observed": 0.65}
     }
   ]
 }
 ```
 
-An empty `parents` list makes this rule MCAR. For each complete row, the
-generator independently draws the missingness indicator. If it is true, the
-configured attribute is replaced by `missing_token` in the observed output.
-The complete output is never modified.
+It uses the same `parents`, `distribution`, and `conditional_distribution`
+vocabulary as the complete-data BN. Nodes are topologically ordered and may
+depend on data attributes or earlier missingness nodes. `attribute` identifies the value to mask.
+An empty `parents` list makes this node MCAR; observed parents imply MAR, while
+dependence on a possibly missing value implies MNAR. The classification is
+inferred rather than stored. For each complete row, the generator draws the
+indicator and replaces the configured attribute with `missing_token` when the
+outcome is `missing`. The complete output is never modified.
 
-## Generate data and inject missingness
+## Run data preparation in two stages
 
 Install dependencies from the repository root:
 
@@ -167,136 +166,202 @@ Install dependencies from the repository root:
 python3 -m pip install -r requirements.txt
 ```
 
-Generate `complete.csv` and `observed.csv` using the configured seeds:
+### 1. Generate complete data
 
 ```bash
-python3 scripts/generate_data.py
+python3 scripts/generate_complete.py config/mcar-single-missing.json
 ```
 
-The pipeline performs these steps:
+This command reads the relation, dataset, generation BN, complete-data seed, and
+output path from the experiment file. For `dataset.source = "synthetic"`, it
+samples the configured number of IID records. For `dataset.source = "csv"`, it
+validates and copies the supplied dataset. It writes only `files.complete`; it
+does not inject missingness.
 
-1. Samples complete rows from the Bayesian network, or loads and validates the
-   configured CSV.
-2. Copies every complete row.
-3. Samples each configured missingness rule using the missingness seed.
-4. Replaces selected observed values with `na`.
-5. Writes the paths configured in `files.complete` and `files.observed`.
-
-Check that committed artifacts are reproducible without rewriting them:
+### 2. Inject missingness
 
 ```bash
-python3 scripts/generate_data.py --check
+python3 scripts/inject_missingness.py config/mcar-single-missing.json
 ```
 
-Derive the BID alternatives for incomplete rows:
+This command reads `files.complete`, samples the missingness BN using
+`sampling_seeds.missingness`, and writes `files.observed` and
+`files.missingness_mask`. It never regenerates or modifies the complete data.
+Running it repeatedly with the same input, configuration, and seed produces the
+same observed data and mask.
+
+## Prepare query answering
+
+Preparation is query-independent and should be run once after `observed.csv` or
+the probabilistic model changes:
 
 ```bash
-python3 scripts/build_blocks.py > data/mcar-single-missing/blocks.csv
+python3 scripts/prepare_qa.py config/mcar-single-missing.json
 ```
 
-Or verify the committed block file:
+It computes completion probabilities and writes:
 
-```bash
-python3 scripts/build_blocks.py --check
+- `data/<scenario>/blocks.csv`: BID alternatives and their probabilities;
+- `models/<scenario>/direct-base.lp`: query-independent direct BID encoding;
+- `models/<scenario>/markoview-base.plp`: query-independent MarkoView/TID encoding;
+- `data/<scenario>/markoview-tuples.csv`: BID probabilities, transformed TID
+  probabilities, and odds;
+- `models/<scenario>/qa-manifest.json`: paths consumed by the QA command.
+
+No query is compiled during preparation. Run preparation again only when the
+observed data, schema, generation model, missingness model, or inference settings
+change. Adding or changing queries does not require it.
+
+### MarkoView transformation
+
+For a BID alternative with probability `p`, the MarkoView base creates an
+independent TID tuple with:
+
+```text
+q = p / (1 + p)
+odds(q) = q / (1 - q) = p
 ```
 
-In this example, rows 2 and 5 have missing disease values. Their BID blocks are
-`{yes: 0.7, no: 0.3}` and `{yes: 0.2, no: 0.8}`.
+It then conditions on exactly one selected alternative per block. The
+`at-most-one` constraints are zero-weight denial MarkoViews; an additional
+coverage constraint excludes the empty-block world. Under this evidence, a
+block alternative has probability `p` because its unnormalized weight is its
+odds, `p`, and the BID probabilities in each block sum to one. Complete rows are
+deterministic Plingo facts and therefore have probability one.
 
-## Specify a conjunctive query
+This is the conditional form of the reduction in
+[`papers/MarkoViewsVLDB12.pdf`](papers/MarkoViewsVLDB12.pdf):
+`P(Q) = P0(Q | not W)`. Plingo performs the exact weighted stable-model
+calculation over the independent tuples and hard evidence.
 
-The query input belongs in the `query` section of `experiment.json`:
+The direct base instead uses a categorical choice rule:
+
+```prolog
+1 { chosen(Block,1); chosen(Block,2) } 1.
+```
+
+and assigns each selected alternative the log-weight `log(p)`.
+
+## Define queries separately
+
+Queries do not belong in the experiment config. Put one or more named Boolean
+conjunctive queries in `queries/<scenario>.json`:
 
 ```json
-"query": {
-  "name": "answer",
-  "type": "boolean_conjunctive_query",
-  "atoms": [
-    {"relation": "person", "arguments": [2, "a", "yes"]},
-    {"relation": "person", "arguments": [5, "b", "yes"]}
+{
+  "queries": [
+    {
+      "name": "disease_in_group_b",
+      "type": "boolean_conjunctive_query",
+      "atoms": [
+        {"relation": "person", "arguments": ["?id", "b", "yes"]}
+      ]
+    },
+    {
+      "name": "person_2_has_disease",
+      "type": "boolean_conjunctive_query",
+      "atoms": [
+        {"relation": "person", "arguments": [2, "?group", "yes"]}
+      ]
+    }
   ]
 }
 ```
 
-This represents the Boolean CQ:
+Variables start with `?`. Reusing a variable across atoms represents a join.
+The current command supports Boolean conjunctive queries; each answer is the
+probability that the query is true.
 
-```text
-Person(2, a, yes) AND Person(5, b, yes)
-```
+## Answer queries
 
-The corresponding solver rule is currently written in each model file:
-
-```prolog
-answer :- person(2,a,yes), person(5,b,yes).
-&query(answer).
-```
-
-When changing a query, update `query.atoms` and the `answer` rule in both
-[`models/mcar-single-missing/direct-bid.lp`](models/mcar-single-missing/direct-bid.lp)
-and
-[`models/mcar-single-missing/conditioned-tid.plp`](models/mcar-single-missing/conditioned-tid.plp).
-The configuration checker reads `query.atoms`, but the current prototype does
-not yet generate the solver rule automatically.
-
-The current implementation supports ground Boolean CQs: each atom must contain
-concrete arguments, and the output is the probability that their conjunction is
-true. Variable-bearing CQs and tuple-result enumeration are not yet generated
-from the JSON format.
-
-## Answer the query
-
-There are three equivalent paths for the example query.
-
-### Explicit possible-world oracle
+MarkoView is the default method:
 
 ```bash
-python3 scripts/enumerate_worlds.py
+python3 scripts/answer_queries.py \
+  config/mcar-single-missing.json \
+  queries/mcar-single-missing.json
 ```
 
-This enumerates all four BID worlds and prints:
-
-```text
-total_probability=1.000000
-query_probability=0.140000
-```
-
-This script is currently specialized to the example and acts as a small
-independent correctness oracle.
-
-### Direct BID encoding in Plingo
+Select a method explicitly with one of:
 
 ```bash
-plingo \
-  models/mcar-single-missing/direct-bid.lp
+--method markoview
+--method direct
+--method both
 ```
 
-The model chooses exactly one completion per missing row and assigns each
-choice the logarithm of its categorical probability. Expected output:
-
-```text
-answer: 0.14000
-```
-
-### Conditioned TID encoding in Plingo
+For example, run both methods and verify their results agree:
 
 ```bash
-plingo \
-  --frontend=problog \
-  models/mcar-single-missing/conditioned-tid.plp
+python3 scripts/answer_queries.py \
+  config/mcar-single-missing.json \
+  queries/mcar-single-missing.json \
+  --method both
 ```
 
-This model begins with independent candidate tuples and conditions on exactly
-one selected completion per block. It must produce the same result:
+The command prints probability and Plingo wall-clock runtime for every query-method pair, plus aggregate runtime per method, and writes all timing fields to `data/<scenario>/answers.json`. Timings depend on machine load and should be treated as benchmark observations, not fixed expected values. Solver
+output for each query and method is retained under `data/<scenario>/logs/`. An
+alternative answer path can be supplied with `--output`.
+
+For the included query batch, the current prepared data produces:
 
 ```text
-answer: 0.14000
+query                    method      probability
+disease_in_group_b       direct      0.20000000
+disease_in_group_b       markoview   0.20000000
+person_2_has_disease     direct      0.70000000
+person_2_has_disease     markoview   0.70000000
 ```
 
-Run the end-to-end consistency check with:
+## MAR example with multiple missing attributes
+
+[`config/mar-multiple-missing.json`](config/mar-multiple-missing.json) defines an
+18-row relation with two attributes that may be missing:
+
+```text
+Person(id, group, disease, treatment)
+```
+
+The complete-data BN contains `group -> disease` and
+`(group, disease) -> treatment`. The missingness BN contains:
+
+```text
+group -> missing_disease
+(group, missing_disease) -> missing_treatment
+```
+
+This is MAR: missingness depends on the always-observed `group` and on a
+missingness indicator, but never on an unobserved `disease` or `treatment`
+value. Depending on `missing_disease` also allows the two missingness events to
+be correlated. With the configured seed, rows 5, 6, 7, 9, 10, 16, and 17 have both
+`disease` and `treatment` missing.
+
+Run the complete workflow with:
 
 ```bash
-python3 scripts/check_experiment.py
+python3 scripts/generate_complete.py config/mar-multiple-missing.json
+python3 scripts/inject_missingness.py config/mar-multiple-missing.json
+python3 scripts/prepare_qa.py config/mar-multiple-missing.json
+python3 scripts/answer_queries.py \
+  config/mar-multiple-missing.json \
+  queries/mar-multiple-missing.json \
+  --method both
 ```
 
-More details about the example are available in
-[`docs/scenarios/mcar-single-missing.md`](docs/scenarios/mcar-single-missing.md).
+Rows with two missing attributes receive a BID block containing the Cartesian
+product of both domains. In this example that means four candidate completions
+per such row. The included query batch produces:
+
+```text
+query                         method      probability   runtime_seconds
+person_5_has_disease          direct      0.20000000    2.472829
+person_5_has_disease          markoview   0.20000000    2.172548
+person_5_treated_disease      direct      0.12000000    2.264319
+person_5_treated_disease      markoview   0.12000000    2.076885
+person_4_treated              direct      0.30000000    2.416162
+person_4_treated              markoview   0.30000000    2.077031
+
+method      total_runtime_seconds
+direct      7.153311
+markoview   6.326464
+```

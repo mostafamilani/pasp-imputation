@@ -1,25 +1,23 @@
-% Generated independent TID conditioned on block eligibility.
-person(1,"a","yes").
+% Query-independent MarkoView encoding over an independent TID.
+% BID p becomes TID q=p/(1+p), whose odds are p.
+% Hard constraints condition each block on exactly one alternative.
+person(1,"a","no").
 person(3,"a","yes").
 person(4,"b","no").
-person(6,"b","no").
+person(6,"a","yes").
 chosen(2,1) :- &problog("0.41176470588235292").
 person(2,"a","yes") :- chosen(2,1).
 chosen(2,2) :- &problog("0.23076923076923075").
 person(2,"a","no") :- chosen(2,2).
-some(2) :- chosen(2,_).
-:- not some(2).
+selected(2) :- chosen(2,_).
+:- not selected(2).
 :- chosen(2,1), chosen(2,2).
 chosen(5,1) :- &problog("0.16666666666666666").
 person(5,"b","yes") :- chosen(5,1).
 chosen(5,2) :- &problog("0.44444444444444448").
 person(5,"b","no") :- chosen(5,2).
-some(5) :- chosen(5,_).
-:- not some(5).
+selected(5) :- chosen(5,_).
+:- not selected(5).
 :- chosen(5,1), chosen(5,2).
 
-answer :- person(V_ID,"b","yes").
-&query(answer).
-
 #show chosen/2.
-#show answer/0.

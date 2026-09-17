@@ -1,0 +1,140 @@
+% Query-independent MarkoView encoding over an independent TID.
+% BID p becomes TID q=p/(1+p), whose odds are p.
+% Hard constraints condition each block on exactly one alternative.
+person(1,"b","no","untreated").
+person(3,"b","yes","treated").
+person(8,"a","no","untreated").
+person(11,"a","no","untreated").
+person(12,"b","yes","untreated").
+person(13,"b","no","treated").
+person(14,"a","yes","treated").
+person(15,"a","no","untreated").
+person(18,"a","yes","treated").
+chosen(2,1) :- &problog("0.23076923076923078").
+person(2,"a","no","treated") :- chosen(2,1).
+chosen(2,2) :- &problog("0.41176470588235292").
+person(2,"a","no","untreated") :- chosen(2,2).
+selected(2) :- chosen(2,_).
+:- not selected(2).
+:- chosen(2,1), chosen(2,2).
+chosen(4,1) :- &problog("0.23076923076923078").
+person(4,"a","no","treated") :- chosen(4,1).
+chosen(4,2) :- &problog("0.41176470588235292").
+person(4,"a","no","untreated") :- chosen(4,2).
+selected(4) :- chosen(4,_).
+:- not selected(4).
+:- chosen(4,1), chosen(4,2).
+chosen(5,1) :- &problog("0.10714285714285714").
+person(5,"b","yes","treated") :- chosen(5,1).
+chosen(5,2) :- &problog("0.07407407407407407").
+person(5,"b","yes","untreated") :- chosen(5,2).
+chosen(5,3) :- &problog("0.07407407407407407").
+person(5,"b","no","treated") :- chosen(5,3).
+chosen(5,4) :- &problog("0.41860465116279066").
+person(5,"b","no","untreated") :- chosen(5,4).
+selected(5) :- chosen(5,_).
+:- not selected(5).
+:- chosen(5,1), chosen(5,2).
+:- chosen(5,1), chosen(5,3).
+:- chosen(5,1), chosen(5,4).
+:- chosen(5,2), chosen(5,3).
+:- chosen(5,2), chosen(5,4).
+:- chosen(5,3), chosen(5,4).
+chosen(6,1) :- &problog("0.10714285714285714").
+person(6,"b","yes","treated") :- chosen(6,1).
+chosen(6,2) :- &problog("0.07407407407407407").
+person(6,"b","yes","untreated") :- chosen(6,2).
+chosen(6,3) :- &problog("0.07407407407407407").
+person(6,"b","no","treated") :- chosen(6,3).
+chosen(6,4) :- &problog("0.41860465116279066").
+person(6,"b","no","untreated") :- chosen(6,4).
+selected(6) :- chosen(6,_).
+:- not selected(6).
+:- chosen(6,1), chosen(6,2).
+:- chosen(6,1), chosen(6,3).
+:- chosen(6,1), chosen(6,4).
+:- chosen(6,2), chosen(6,3).
+:- chosen(6,2), chosen(6,4).
+:- chosen(6,3), chosen(6,4).
+chosen(7,1) :- &problog("0.35897435897435892").
+person(7,"a","yes","treated") :- chosen(7,1).
+chosen(7,2) :- &problog("0.12280701754385964").
+person(7,"a","yes","untreated") :- chosen(7,2).
+chosen(7,3) :- &problog("0.082568807339449532").
+person(7,"a","no","treated") :- chosen(7,3).
+chosen(7,4) :- &problog("0.1735537190082645").
+person(7,"a","no","untreated") :- chosen(7,4).
+selected(7) :- chosen(7,_).
+:- not selected(7).
+:- chosen(7,1), chosen(7,2).
+:- chosen(7,1), chosen(7,3).
+:- chosen(7,1), chosen(7,4).
+:- chosen(7,2), chosen(7,3).
+:- chosen(7,2), chosen(7,4).
+:- chosen(7,3), chosen(7,4).
+chosen(9,1) :- &problog("0.10714285714285714").
+person(9,"b","yes","treated") :- chosen(9,1).
+chosen(9,2) :- &problog("0.07407407407407407").
+person(9,"b","yes","untreated") :- chosen(9,2).
+chosen(9,3) :- &problog("0.07407407407407407").
+person(9,"b","no","treated") :- chosen(9,3).
+chosen(9,4) :- &problog("0.41860465116279066").
+person(9,"b","no","untreated") :- chosen(9,4).
+selected(9) :- chosen(9,_).
+:- not selected(9).
+:- chosen(9,1), chosen(9,2).
+:- chosen(9,1), chosen(9,3).
+:- chosen(9,1), chosen(9,4).
+:- chosen(9,2), chosen(9,3).
+:- chosen(9,2), chosen(9,4).
+:- chosen(9,3), chosen(9,4).
+chosen(10,1) :- &problog("0.10714285714285714").
+person(10,"b","yes","treated") :- chosen(10,1).
+chosen(10,2) :- &problog("0.07407407407407407").
+person(10,"b","yes","untreated") :- chosen(10,2).
+chosen(10,3) :- &problog("0.07407407407407407").
+person(10,"b","no","treated") :- chosen(10,3).
+chosen(10,4) :- &problog("0.41860465116279066").
+person(10,"b","no","untreated") :- chosen(10,4).
+selected(10) :- chosen(10,_).
+:- not selected(10).
+:- chosen(10,1), chosen(10,2).
+:- chosen(10,1), chosen(10,3).
+:- chosen(10,1), chosen(10,4).
+:- chosen(10,2), chosen(10,3).
+:- chosen(10,2), chosen(10,4).
+:- chosen(10,3), chosen(10,4).
+chosen(16,1) :- &problog("0.10714285714285714").
+person(16,"b","yes","treated") :- chosen(16,1).
+chosen(16,2) :- &problog("0.07407407407407407").
+person(16,"b","yes","untreated") :- chosen(16,2).
+chosen(16,3) :- &problog("0.07407407407407407").
+person(16,"b","no","treated") :- chosen(16,3).
+chosen(16,4) :- &problog("0.41860465116279066").
+person(16,"b","no","untreated") :- chosen(16,4).
+selected(16) :- chosen(16,_).
+:- not selected(16).
+:- chosen(16,1), chosen(16,2).
+:- chosen(16,1), chosen(16,3).
+:- chosen(16,1), chosen(16,4).
+:- chosen(16,2), chosen(16,3).
+:- chosen(16,2), chosen(16,4).
+:- chosen(16,3), chosen(16,4).
+chosen(17,1) :- &problog("0.10714285714285714").
+person(17,"b","yes","treated") :- chosen(17,1).
+chosen(17,2) :- &problog("0.07407407407407407").
+person(17,"b","yes","untreated") :- chosen(17,2).
+chosen(17,3) :- &problog("0.07407407407407407").
+person(17,"b","no","treated") :- chosen(17,3).
+chosen(17,4) :- &problog("0.41860465116279066").
+person(17,"b","no","untreated") :- chosen(17,4).
+selected(17) :- chosen(17,_).
+:- not selected(17).
+:- chosen(17,1), chosen(17,2).
+:- chosen(17,1), chosen(17,3).
+:- chosen(17,1), chosen(17,4).
+:- chosen(17,2), chosen(17,3).
+:- chosen(17,2), chosen(17,4).
+:- chosen(17,3), chosen(17,4).
+
+#show chosen/2.

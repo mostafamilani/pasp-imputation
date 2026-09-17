@@ -1,6 +1,5 @@
 {
   "experiment": "mcar-single-missing",
-  "seed": 1,
   "sampling_seeds": {"complete_data": 8, "missingness": 58},
   "relation": {
     "name": "person",
@@ -13,12 +12,7 @@
   },
   "dataset": {
     "source": "synthetic",
-    "number_of_records": 6,
-    "sampling": {
-      "method": "stratified",
-      "attribute": "group",
-      "counts": {"a": 3, "b": 3}
-    }
+    "number_of_records": 6
   },
   "generation": {
     "model": "bayesian_network",
@@ -40,34 +34,20 @@
     }
   },
   "missingness": {
-    "mechanism": "MCAR",
     "missing_token": "na",
-    "variables": ["group", "disease", "missing_disease", "observed_disease"],
-    "edges": [
-      ["group", "disease"],
-      ["disease", "observed_disease"],
-      ["missing_disease", "observed_disease"]
-    ],
-    "rules": [
+    "nodes": [
       {
+        "name": "missing_disease",
         "attribute": "disease",
-        "indicator": "missing_disease",
         "parents": [],
-        "probability_missing": 0.35
+        "distribution": {"missing": 0.35, "observed": 0.65}
       }
-    ]
-  },
-  "query": {
-    "name": "answer",
-    "type": "boolean_conjunctive_query",
-    "atoms": [
-      {"relation": "person", "arguments": [2, "a", "yes"]},
-      {"relation": "person", "arguments": [5, "b", "yes"]}
     ]
   },
   "files": {
     "complete": "data/mcar-single-missing/complete.csv",
     "observed": "data/mcar-single-missing/observed.csv",
+    "missingness_mask": "data/mcar-single-missing/missingness-mask.csv",
     "blocks": "data/mcar-single-missing/blocks.csv"
   }
 }

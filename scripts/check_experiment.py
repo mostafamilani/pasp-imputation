@@ -1,80 +1,77 @@
 #!/usr/bin/env python3
-"""Validate the configured MCAR experiment against its materialized artifacts."""
+"""Validate the MCAR example against its materialized artifacts and answers."""
 
-import csv
+from __future__ import annotations
+
 import json
-import random
-from itertools import product
+import math
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-
-
-def read_csv(path: Path) -> list[dict[str, str]]:
-    with path.open(newline="", encoding="utf-8") as handle:
-        return list(csv.DictReader(handle))
+from run_scenario import (
+    ROOT,
+    complete_records,
+    derive_blocks,
+    enumerate_worlds,
+    inject_missingness,
+    load_json,
+    read_csv,
+    validate_config,
+)
 
 
 def main() -> None:
-    config = json.loads((PROJECT_ROOT / "config" / "mcar-single-missing" / "experiment.json").read_text(encoding="utf-8"))
+    config_path = ROOT / "config" / "mcar-single-missing.json"
+    query_path = ROOT / "queries" / "mcar-single-missing.json"
+    config = load_json(config_path)
+    validate_config(config)
+
+    complete = complete_records(config)
+    observed, mask = inject_missingness(complete, config)
     files = config["files"]
-    generation = config["generation"]
-    missingness = config["missingness"]
-    rng = random.Random(config["seed"])
+    assert complete == read_csv(ROOT / files["complete"])
+    assert observed == read_csv(ROOT / files["observed"])
+    assert [
+        {name: str(value) for name, value in row.items()} for row in mask
+    ] == read_csv(ROOT / files["missingness_mask"])
 
-    generated_complete: list[dict[str, str]] = []
-    generated_observed: list[dict[str, str]] = []
-    row_id = 0
-    for group, count in generation["rows_by_group"].items():
-        probability_yes = generation["disease_given_group"][group]["yes"]
-        for _ in range(count):
-            row_id += 1
-            disease = "yes" if rng.random() < probability_yes else "no"
-            is_missing = rng.random() < missingness["rules"][0]["probability_missing"]
-            generated_complete.append({"id": str(row_id), "group": group, "disease": disease})
-            generated_observed.append({
-                "id": str(row_id),
-                "group": group,
-                "disease": missingness["missing_token"] if is_missing else disease,
-            })
+    expected_blocks = derive_blocks(observed, config)
+    actual_blocks = read_csv(ROOT / files["blocks"])
+    assert len(expected_blocks) == len(actual_blocks)
+    for expected, actual in zip(expected_blocks, actual_blocks):
+        for name, value in expected.items():
+            if name == "probability":
+                assert math.isclose(float(actual[name]), float(value), abs_tol=1e-12)
+            else:
+                assert actual[name] == str(value)
 
-    assert generated_complete == read_csv(PROJECT_ROOT / files["complete"])
-    assert generated_observed == read_csv(PROJECT_ROOT / files["observed"])
+    queries = load_json(query_path)["queries"]
+    config["query"] = queries[0]
+    worlds = enumerate_worlds(observed, expected_blocks, config)
+    query_probability = sum(
+        world["probability"] for world in worlds if world["query"]
+    )
 
-    observed = generated_observed
-    materialized_blocks = read_csv(PROJECT_ROOT / files["blocks"])
-    expected_blocks: list[dict[str, str]] = []
-    for row in observed:
-        if row["disease"] != missingness["missing_token"]:
-            continue
-        for disease, probability in generation["disease_given_group"][row["group"]].items():
-            expected_blocks.append({
-                "block_id": row["id"], "row_id": row["id"], "group": row["group"],
-                "disease": disease, "probability": str(probability),
-            })
-    assert expected_blocks == materialized_blocks
+    answers_path = ROOT / "data" / config["experiment"] / "answers.json"
+    answers = load_json(answers_path)["answers"]
+    matching = [
+        answer for answer in answers if answer["query"] == queries[0]["name"]
+    ]
+    assert matching
+    assert all(
+        math.isclose(answer["probability"], query_probability, abs_tol=5e-5)
+        for answer in matching
+    )
 
-    blocks: dict[int, dict[str, float]] = {}
-    for row in materialized_blocks:
-        blocks.setdefault(int(row["block_id"]), {})[row["disease"]] = float(row["probability"])
-    requirements = {int(atom["arguments"][0]): atom["arguments"][2]
-                    for atom in config["query"]["atoms"]}
-    query_probability = 0.0
-    block_ids = list(blocks)
-    for choices in product(*(blocks[block_id] for block_id in block_ids)):
-        world = dict(zip(block_ids, choices))
-        probability = 1.0
-        for block_id, choice in world.items():
-            probability *= blocks[block_id][choice]
-        if all(world[row] == value for row, value in requirements.items()):
-            query_probability += probability
-
+    missing_rows = [
+        row[config["relation"]["key"][0]]
+        for row in observed
+        if config["missingness"]["missing_token"] in row.values()
+    ]
     print(f"records={len(observed)}")
-    print("missing_rows=" + ",".join(row["id"] for row in observed
-                                           if row["disease"] == missingness["missing_token"]))
-    print(f"query_atoms={len(config['query']['atoms'])}")
+    print("missing_rows=" + ",".join(missing_rows))
+    print(f"uncertain_blocks={len({row['block_id'] for row in expected_blocks})}")
     print(f"query_probability={query_probability:.6f}")
-    print("configuration and materialized artifacts agree")
+    print("configuration, artifacts, and answers agree")
 
 
 if __name__ == "__main__":

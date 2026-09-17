@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Derive BID blocks from the observed table and quantitative MCAR graph."""
+"""Derive BID blocks from the observed table and quantitative MCAR missingness BN."""
 
 import argparse
 import csv
@@ -12,8 +12,8 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 def derive_blocks(observed_path: Path, config_path: Path) -> list[dict[str, object]]:
     config = json.loads(config_path.read_text(encoding="utf-8"))
     missingness = config["missingness"]
-    if missingness["mechanism"] != "MCAR":
-        raise ValueError("This milestone intentionally supports MCAR only")
+    if any(node.get("parents") for node in missingness["nodes"]):
+        raise ValueError("This legacy helper intentionally supports MCAR only")
     distributions = config["generation"]["disease_given_group"]
     missing_token = missingness["missing_token"]
     blocks: list[dict[str, object]] = []
@@ -42,7 +42,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
-    rendered = render_csv(derive_blocks(PROJECT_ROOT / "data" / "mcar-single-missing" / "observed.csv", PROJECT_ROOT / "config" / "mcar-single-missing" / "experiment.json"))
+    rendered = render_csv(derive_blocks(PROJECT_ROOT / "data" / "mcar-single-missing" / "observed.csv", PROJECT_ROOT / "config" / "mcar-single-missing.json"))
     if args.check:
         if rendered != (PROJECT_ROOT / "data" / "mcar-single-missing" / "blocks.csv").read_text(encoding="utf-8"):
             raise SystemExit("derived blocks differ from blocks.csv")

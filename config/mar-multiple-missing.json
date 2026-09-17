@@ -1,0 +1,77 @@
+{
+  "experiment": "mar-multiple-missing",
+  "sampling_seeds": {"complete_data": 17, "missingness": 23},
+  "relation": {
+    "name": "person",
+    "attributes": [
+      {"name": "id", "type": "integer"},
+      {"name": "group", "type": "categorical", "domain": ["a", "b"]},
+      {"name": "disease", "type": "categorical", "domain": ["yes", "no"], "may_be_missing": true},
+      {"name": "treatment", "type": "categorical", "domain": ["treated", "untreated"], "may_be_missing": true}
+    ],
+    "key": ["id"]
+  },
+  "dataset": {
+    "source": "synthetic",
+    "number_of_records": 18
+  },
+  "generation": {
+    "model": "bayesian_network",
+    "nodes": [
+      {
+        "name": "group",
+        "parents": [],
+        "distribution": {"a": 0.5, "b": 0.5}
+      },
+      {
+        "name": "disease",
+        "parents": ["group"],
+        "conditional_distribution": {
+          "group=a": {"yes": 0.7, "no": 0.3},
+          "group=b": {"yes": 0.2, "no": 0.8}
+        }
+      },
+      {
+        "name": "treatment",
+        "parents": ["group", "disease"],
+        "conditional_distribution": {
+          "group=a,disease=yes": {"treated": 0.8, "untreated": 0.2},
+          "group=a,disease=no": {"treated": 0.3, "untreated": 0.7},
+          "group=b,disease=yes": {"treated": 0.6, "untreated": 0.4},
+          "group=b,disease=no": {"treated": 0.1, "untreated": 0.9}
+        }
+      }
+    ]
+  },
+  "missingness": {
+    "missing_token": "na",
+    "nodes": [
+      {
+        "name": "missing_disease",
+        "attribute": "disease",
+        "parents": ["group"],
+        "conditional_distribution": {
+          "group=a": {"missing": 0.25, "observed": 0.75},
+          "group=b": {"missing": 0.55, "observed": 0.45}
+        }
+      },
+      {
+        "name": "missing_treatment",
+        "attribute": "treatment",
+        "parents": ["group", "missing_disease"],
+        "conditional_distribution": {
+          "group=a,missing_disease=observed": {"missing": 0.20, "observed": 0.80},
+          "group=a,missing_disease=missing": {"missing": 0.60, "observed": 0.40},
+          "group=b,missing_disease=observed": {"missing": 0.35, "observed": 0.65},
+          "group=b,missing_disease=missing": {"missing": 0.80, "observed": 0.20}
+        }
+      }
+    ]
+  },
+  "files": {
+    "complete": "data/mar-multiple-missing/complete.csv",
+    "observed": "data/mar-multiple-missing/observed.csv",
+    "missingness_mask": "data/mar-multiple-missing/missingness-mask.csv",
+    "blocks": "data/mar-multiple-missing/blocks.csv"
+  }
+}

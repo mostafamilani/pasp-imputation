@@ -1,0 +1,8 @@
+{
+  "scenario": "mar-multiple-missing",
+  "observed": "data/mar-multiple-missing/observed.csv",
+  "blocks": "data/mar-multiple-missing/blocks.csv",
+  "direct": "models/mar-multiple-missing/direct-base.lp",
+  "markoview": "models/mar-multiple-missing/markoview-base.plp",
+  "markoview_tuples": "data/mar-multiple-missing/markoview-tuples.csv"
+}

@@ -18,14 +18,14 @@ def main() -> None:
     print("row_2,row_5,world_probability,query")
     for disease_2, disease_5 in product(BLOCKS[2], BLOCKS[5]):
         probability = BLOCKS[2][disease_2] * BLOCKS[5][disease_5]
-        query = disease_2 == "yes" and disease_5 == "yes"
+        query = disease_5 == "yes"
         total_mass += probability
         if query:
             query_mass += probability
         print(f"{disease_2},{disease_5},{probability:.6f},{str(query).lower()}")
 
     assert isclose(total_mass, 1.0)
-    assert isclose(query_mass, 0.14)
+    assert isclose(query_mass, 0.2)
     print(f"total_probability={total_mass:.6f}")
     print(f"query_probability={query_mass:.6f}")
 

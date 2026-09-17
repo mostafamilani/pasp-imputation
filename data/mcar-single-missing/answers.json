@@ -1,0 +1,37 @@
+{
+  "scenario": "mcar-single-missing",
+  "answers": [
+    {
+      "query": "disease_in_group_b",
+      "method": "direct",
+      "probability": 0.2,
+      "runtime_seconds": 0.15535731986165047,
+      "log": "data/mcar-single-missing/logs/disease_in_group_b-direct.log"
+    },
+    {
+      "query": "disease_in_group_b",
+      "method": "markoview",
+      "probability": 0.2,
+      "runtime_seconds": 0.10536451917141676,
+      "log": "data/mcar-single-missing/logs/disease_in_group_b-markoview.log"
+    },
+    {
+      "query": "person_2_has_disease",
+      "method": "direct",
+      "probability": 0.7,
+      "runtime_seconds": 0.10043678991496563,
+      "log": "data/mcar-single-missing/logs/person_2_has_disease-direct.log"
+    },
+    {
+      "query": "person_2_has_disease",
+      "method": "markoview",
+      "probability": 0.7,
+      "runtime_seconds": 0.10394262196496129,
+      "log": "data/mcar-single-missing/logs/person_2_has_disease-markoview.log"
+    }
+  ],
+  "method_totals_seconds": {
+    "direct": 0.2557941097766161,
+    "markoview": 0.20930714113637805
+  }
+}

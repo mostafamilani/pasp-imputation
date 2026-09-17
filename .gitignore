@@ -9,5 +9,8 @@ __pycache__/
 .vscode/
 .DS_Store
 
+# Generated solver logs
+data/*/logs/
+
 # Local research material
 papers/

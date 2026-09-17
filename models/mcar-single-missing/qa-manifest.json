@@ -1,0 +1,8 @@
+{
+  "scenario": "mcar-single-missing",
+  "observed": "data/mcar-single-missing/observed.csv",
+  "blocks": "data/mcar-single-missing/blocks.csv",
+  "direct": "models/mcar-single-missing/direct-base.lp",
+  "markoview": "models/mcar-single-missing/markoview-base.plp",
+  "markoview_tuples": "data/mcar-single-missing/markoview-tuples.csv"
+}

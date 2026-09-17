@@ -1,0 +1,25 @@
+{
+  "queries": [
+    {
+      "name": "person_5_has_disease",
+      "type": "boolean_conjunctive_query",
+      "atoms": [
+        {"relation": "person", "arguments": [5, "b", "yes", "?treatment"]}
+      ]
+    },
+    {
+      "name": "person_5_treated_disease",
+      "type": "boolean_conjunctive_query",
+      "atoms": [
+        {"relation": "person", "arguments": [5, "b", "yes", "treated"]}
+      ]
+    },
+    {
+      "name": "person_4_treated",
+      "type": "boolean_conjunctive_query",
+      "atoms": [
+        {"relation": "person", "arguments": [4, "a", "no", "treated"]}
+      ]
+    }
+  ]
+}
