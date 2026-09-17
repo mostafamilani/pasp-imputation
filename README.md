@@ -22,7 +22,7 @@ distribution given `group`.
 ```text
 config/<scenario>.json   Experiment, schema, generation, and missingness
 data/<scenario>/         Complete/observed data, BID blocks, and answers
-models/<scenario>/       Reusable direct and MarkoView Plingo bases
+models/<scenario>/       Reusable direct and MarkoViews Plingo bases
 queries/<scenario>.json  Reusable batches of Boolean conjunctive queries
 scripts/                 Data preparation and query-answering tools
 docs/scenarios/          Additional scenario-specific explanation
@@ -203,7 +203,7 @@ It computes completion probabilities and writes:
 
 - `data/<scenario>/blocks.csv`: BID alternatives and their probabilities;
 - `models/<scenario>/direct-base.lp`: query-independent direct BID encoding;
-- `models/<scenario>/markoview-base.plp`: query-independent MarkoView/TID encoding;
+- `models/<scenario>/markoview-base.plp`: query-independent MarkoViews/TID encoding;
 - `data/<scenario>/markoview-tuples.csv`: BID probabilities, transformed TID
   probabilities, and odds;
 - `models/<scenario>/qa-manifest.json`: paths consumed by the QA command.
@@ -212,9 +212,9 @@ No query is compiled during preparation. Run preparation again only when the
 observed data, schema, generation model, missingness model, or inference settings
 change. Adding or changing queries does not require it.
 
-### MarkoView transformation
+### MarkoViews transformation
 
-For a BID alternative with probability `p`, the MarkoView base creates an
+For a BID alternative with probability `p`, the MarkoViews base creates an
 independent TID tuple with:
 
 ```text
@@ -229,8 +229,9 @@ block alternative has probability `p` because its unnormalized weight is its
 odds, `p`, and the BID probabilities in each block sum to one. Complete rows are
 deterministic Plingo facts and therefore have probability one.
 
-This is the conditional form of the reduction in
-[`papers/MarkoViewsVLDB12.pdf`](papers/MarkoViewsVLDB12.pdf):
+This is the conditional form of the reduction presented by Abhay K. Jha and
+Dan Suciu in “Probabilistic Databases with MarkoViews,” *Proceedings of the
+VLDB Endowment* 5(11):1160–1171, 2012:
 `P(Q) = P0(Q | not W)`. Plingo performs the exact weighted stable-model
 calculation over the independent tuples and hard evidence.
 
@@ -274,7 +275,7 @@ probability that the query is true.
 
 ## Answer queries
 
-MarkoView is the default method:
+The MarkoViews method is the default:
 
 ```bash
 python3 scripts/answer_queries.py \
@@ -365,3 +366,114 @@ method      total_runtime_seconds
 direct      7.153311
 markoview   6.326464
 ```
+
+## Generated logic programs: `.lp` and `.plp`
+
+The extensions identify the Plingo input style used by each method. They are
+naming conventions; the important distinction is the selected Plingo frontend
+and the probability encoding.
+
+| Extension | Method | Plingo frontend | Probability representation |
+| --- | --- | --- | --- |
+| `.lp` | Direct BID | Default ASP frontend | Exact-one choices with log-weights |
+| `.plp` | MarkoViews | `--frontend=problog` | Independent Bernoulli tuples conditioned by hard constraints |
+
+Both generated bases are query-independent. A complete observed row becomes an
+ordinary fact in both programs and therefore has probability one:
+
+```prolog
+person(1,"a","yes").
+```
+
+### Direct `.lp` program
+
+For every incomplete row, the direct program creates one candidate atom per
+possible completion. An exact-one ASP choice rule selects one completion from
+the BID block:
+
+```prolog
+1 { chosen(2,1); chosen(2,2) } 1.
+```
+
+The selected candidate derives its completed database tuple:
+
+```prolog
+person(2,"a","yes") :- chosen(2,1).
+person(2,"a","no")  :- chosen(2,2).
+```
+
+Each candidate receives the natural logarithm of its BID probability:
+
+```prolog
+:~ chosen(2,1). ["-0.35667494393873245"@0,2,1]
+:~ chosen(2,2). ["-1.2039728043259361"@0,2,2]
+```
+
+These values are `log(0.7)` and `log(0.3)`. Plingo exponentiates and normalizes
+the accumulated weights, so a stable model has the product of its selected BID
+probabilities. The exact-one choice rule means every stable model is already a
+valid completed database.
+
+The direct base uses Plingo's default frontend:
+
+```bash
+plingo models/<scenario>/direct-base.lp query.lp
+```
+
+### MarkoViews `.plp` program
+
+The MarkoViews program first represents every completion candidate as an
+independent Bernoulli tuple. A BID probability `p` is converted to
+`q = p/(1+p)` so that the tuple's odds are exactly `p`:
+
+```prolog
+chosen(2,1) :- &problog("0.41176470588235292").
+chosen(2,2) :- &problog("0.23076923076923075").
+```
+
+As in the direct program, selected candidates derive completed database facts:
+
+```prolog
+person(2,"a","yes") :- chosen(2,1).
+person(2,"a","no")  :- chosen(2,2).
+```
+
+Independent Bernoulli sampling permits selecting zero, one, or several
+candidates from a block. The MarkoViews evidence therefore conditions the TID on
+exactly one candidate. Coverage excludes zero selections:
+
+```prolog
+selected(2) :- chosen(2,_).
+:- not selected(2).
+```
+
+Denial constraints exclude multiple selections:
+
+```prolog
+:- chosen(2,1), chosen(2,2).
+```
+
+After conditioning, candidate weights within the block are proportional to
+their odds, which are the original BID probabilities. The `.plp` base uses
+ProbLog probability declarations and must use Plingo's ProbLog frontend:
+
+```bash
+plingo --frontend=problog models/<scenario>/markoview-base.plp query.lp
+```
+
+### Per-query fragment
+
+`answer_queries.py` translates each Boolean conjunctive query into a small
+temporary ASP fragment. For example:
+
+```prolog
+disease_in_group_b :- person(V_ID,"b","yes").
+&query(disease_in_group_b).
+#show disease_in_group_b/0.
+```
+
+The fragment is passed to Plingo together with either reusable base program.
+Changing a query therefore does not rebuild completion blocks or either base.
+The temporary fragment is deleted after execution; probabilities and runtimes
+are retained in `answers.json`, while complete solver output is retained in the
+scenario's ignored `logs` directory.
