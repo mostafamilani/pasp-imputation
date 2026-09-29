@@ -273,6 +273,146 @@ Variables start with `?`. Reusing a variable across atoms represents a join.
 The current command supports Boolean conjunctive queries; each answer is the
 probability that the query is true.
 
+### MCC/MPC preferred-class queries
+
+In addition to the ordinary probability of a BCQ over all possible worlds, the
+query command implements the paper's preferred-class semantics. Enable it with
+one of:
+
+```text
+--preferred-class mcc
+--preferred-class mpc
+```
+
+The implementation in `scripts/preferred_classes.py` performs these steps:
+
+1. Enumerate the possible worlds of the prepared BID, choosing exactly one
+   candidate from every uncertain block.
+2. Remove the configured tuple key and group worlds whose remaining relations
+   are equal as multisets. These are the matching-world classes. Duplicates and
+   their multiplicities are retained.
+3. Set each class probability to the sum of the probabilities of all worlds in
+   that class.
+4. Select every class tied for the requested optimum:
+   - **MPC** (most-probable classes) maximizes class probability.
+   - **MCC** (most-compliant classes) minimizes squared Euclidean distance
+     between the class's empirical tuple distribution and the generation BN's
+     distribution, restricted to the complete BID support. Taking the square
+     root would not change which classes minimize the distance.
+5. Evaluate the BCQ on each preferred class and return the set of distinct
+   `(answer, class_probability)` pairs.
+
+Class probabilities are the original BID probabilities. They are not
+conditioned on, or renormalized over, the preferred classes. All ties are
+preserved. Consequently, preferred-class output is not a single probability
+`P(Q)` and should not be compared as though it were another inference method.
+
+#### Configuration requirements
+
+Preferred-class answering reuses the normal experiment and query files; there
+is no separate preferred-class configuration file. The relevant settings are:
+
+| Setting | Preferred-class use |
+| --- | --- |
+| `relation.key` | Tuple identifier removed when matching worlds. Exactly one key is currently supported. |
+| `generation.nodes` | Complete-data BN used to calculate the target distribution for MCC. MPC does not use it for class selection. |
+| `files.observed` | Certain tuples and locations of incomplete tuples. |
+| `files.blocks` | Prepared alternatives and probabilities used to enumerate worlds. |
+| `preferred_classes.enabled_semantics` | Preferred semantics allowed for the scenario; currently `mcc` and `mpc`. |
+| `preferred_classes.mcc_distance` | MCC distance function; currently `squared_euclidean`. |
+| `preferred_classes.max_enumerated_worlds` | Enumeration safety limit; configured as `100000` in both examples. |
+
+Both checked-in scenario configs now contain:
+
+```json
+"preferred_classes": {
+  "enabled_semantics": ["mcc", "mpc"],
+  "mcc_distance": "squared_euclidean",
+  "max_enumerated_worlds": 100000
+}
+```
+
+`enabled_semantics` controls which values may be passed to
+`--preferred-class`. `mcc_distance` makes the compliance measure explicit; the
+implementation currently rejects unsupported values instead of silently using
+a different distance. `max_enumerated_worlds` bounds the product of the BID
+block sizes before enumeration begins.
+
+Run `scripts/prepare_qa.py` first so that `blocks.csv` and `qa-manifest.json`
+exist and agree with the observed data. Preferred-class answering reads those
+artifacts directly and does not invoke Plingo, so `--method` is not used in
+this mode. MCC currently requires a configured generation BN.
+
+Queries must be invariant under removal of the tuple key. Existential key
+variables such as `?id` are safe when they merely ask whether some matching
+tuple exists. A query that assigns an imputed value to a particular key, such
+as `person(2, ?group, yes)`, may differ between worlds in the same class and is
+rejected with an explanatory error.
+
+#### Running the MCAR example
+
+The repository includes the following minimal class-safe batch as
+`queries/mcar-preferred-classes.json`:
+
+```json
+{
+  "queries": [
+    {
+      "name": "disease_in_group_b",
+      "type": "boolean_conjunctive_query",
+      "atoms": [
+        {"relation": "person", "arguments": ["?id", "b", "yes"]}
+      ]
+    }
+  ]
+}
+```
+
+Prepare the BID once, then run either semantics. Supplying `--output` keeps the
+ordinary all-world answers in `data/mcar-single-missing/answers.json` intact:
+
+```bash
+python3 scripts/prepare_qa.py config/mcar-single-missing.json
+
+python3 scripts/answer_queries.py \
+  config/mcar-single-missing.json \
+  queries/mcar-preferred-classes.json \
+  --preferred-class mcc \
+  --output data/mcar-single-missing/answers-mcc.json
+
+python3 scripts/answer_queries.py \
+  config/mcar-single-missing.json \
+  queries/mcar-preferred-classes.json \
+  --preferred-class mpc \
+  --output data/mcar-single-missing/answers-mpc.json
+```
+
+The prepared MCAR example has four matching classes. Their probabilities,
+MCC distances, and answers to `disease_in_group_b` are:
+
+| `(group,disease)` multiplicities | Class probability | Squared Euclidean distance | Query answer |
+| --- | ---: | ---: | --- |
+| `(a,no):1, (a,yes):3, (b,no):1, (b,yes):1` | 0.14 | 0.08166667 | true |
+| `(a,no):1, (a,yes):3, (b,no):2` | **0.56** | **0.03722222** | false |
+| `(a,no):2, (a,yes):2, (b,no):1, (b,yes):1` | 0.06 | 0.09277778 | true |
+| `(a,no):2, (a,yes):2, (b,no):2` | 0.24 | 0.04833333 | false |
+
+For this dataset, MCC and MPC happen to select the same single class: it has
+the smallest distance and the greatest class probability. Both commands print:
+
+```text
+query                 semantics  preferred_answers
+disease_in_group_b    mcc        [{"answer":false,"class_probability":0.5599999999999999}]
+preferred_classes=1
+```
+
+The MPC row is identical except that `semantics` is `mpc`. The unrounded JSON
+value reflects binary floating-point arithmetic and is `0.56` to the displayed
+precision used elsewhere in this README. In contrast, ordinary all-world
+query answering below gives `P(disease_in_group_b) = 0.20`: it sums every world
+where the query is true, whereas MCC/MPC report answers from only the selected
+preferred classes.
+
 ## Answer queries
 
 The MarkoViews method is the default:
@@ -304,15 +444,25 @@ The command prints probability and Plingo wall-clock runtime for every query-met
 output for each query and method is retained under `data/<scenario>/logs/`. An
 alternative answer path can be supplied with `--output`.
 
-For the included query batch, the current prepared data produces:
+For the included query batch, the current prepared data produces the following
+ordinary all-world probabilities. The MCC/MPC rows use the class-safe
+`disease_in_group_b` query from the preferred-class example above:
 
 ```text
-query                    method      probability
-disease_in_group_b       direct      0.20000000
-disease_in_group_b       markoview   0.20000000
-person_2_has_disease     direct      0.70000000
-person_2_has_disease     markoview   0.70000000
+query                    method/semantics  result
+disease_in_group_b       direct             P(Q) = 0.20000000
+disease_in_group_b       markoview          P(Q) = 0.20000000
+disease_in_group_b       MCC                 false, class probability = 0.56000000
+disease_in_group_b       MPC                 false, class probability = 0.56000000
+person_2_has_disease     direct             P(Q) = 0.70000000
+person_2_has_disease     markoview          P(Q) = 0.70000000
+person_2_has_disease     MCC                 not defined (tuple-key-specific query)
+person_2_has_disease     MPC                 not defined (tuple-key-specific query)
 ```
+
+`person_2_has_disease` fixes the tuple key to `2`, so its truth value is not
+invariant across all worlds of a matching class. Preferred-class semantics
+therefore reject it instead of reporting a misleading class probability.
 
 ## MAR example with multiple missing attributes
 
@@ -354,18 +504,76 @@ product of both domains. In this example that means four candidate completions
 per such row. The included query batch produces:
 
 ```text
-query                         method      probability   runtime_seconds
-person_5_has_disease          direct      0.20000000    2.472829
-person_5_has_disease          markoview   0.20000000    2.172548
-person_5_treated_disease      direct      0.12000000    2.264319
-person_5_treated_disease      markoview   0.12000000    2.076885
-person_4_treated              direct      0.30000000    2.416162
-person_4_treated              markoview   0.30000000    2.077031
+query                           method/semantics  result                                  runtime_seconds
+person_5_has_disease            direct             P(Q) = 0.20000000                      2.472829
+person_5_has_disease            markoview          P(Q) = 0.20000000                      2.172548
+person_5_has_disease            MCC                not defined (tuple-key-specific query) n/a
+person_5_has_disease            MPC                not defined (tuple-key-specific query) n/a
+person_5_treated_disease        direct             P(Q) = 0.12000000                      2.264319
+person_5_treated_disease        markoview          P(Q) = 0.12000000                      2.076885
+person_5_treated_disease        MCC                not defined (tuple-key-specific query) n/a
+person_5_treated_disease        MPC                not defined (tuple-key-specific query) n/a
+person_4_treated                direct             P(Q) = 0.30000000                      2.416162
+person_4_treated                markoview          P(Q) = 0.30000000                      2.077031
+person_4_treated                MCC                not defined (tuple-key-specific query) n/a
+person_4_treated                MPC                not defined (tuple-key-specific query) n/a
+untreated_disease_in_group_a    all-world          P(Q) = 0.14000000                      n/a
+untreated_disease_in_group_a    MCC                false, class probability = 0.0070214291 n/a
+untreated_disease_in_group_a    MPC                false, class probability = 0.0382277807 n/a
 
 method      total_runtime_seconds
 direct      7.153311
 markoview   6.326464
 ```
+
+The original three MAR queries identify a particular row by its tuple key, so
+they do not have well-defined MCC/MPC answers. The additional
+`untreated_disease_in_group_a` query is key-invariant and is included in
+`queries/mar-preferred-classes.json` specifically for preferred-class QA.
+Its preferred-class runs did not use Plingo and were measured separately from
+the historical direct/MarkoView benchmark, so this table reports `n/a` rather
+than mixing incomparable runtime measurements.
+
+### MAR preferred-class results
+
+The repository also includes `queries/mar-preferred-classes.json`, containing
+the class-safe query:
+
+```text
+exists id: person(id, a, yes, untreated)
+```
+
+Run both preferred semantics after preparing the MAR scenario:
+
+```bash
+python3 scripts/prepare_qa.py config/mar-multiple-missing.json
+
+python3 scripts/answer_queries.py \
+  config/mar-multiple-missing.json \
+  queries/mar-preferred-classes.json \
+  --preferred-class mcc \
+  --output data/mar-multiple-missing/answers-mcc.json
+
+python3 scripts/answer_queries.py \
+  config/mar-multiple-missing.json \
+  queries/mar-preferred-classes.json \
+  --preferred-class mpc \
+  --output data/mar-multiple-missing/answers-mpc.json
+```
+
+With the checked-in seeds, this scenario has 9 uncertain blocks, 65,536
+possible worlds, and 840 matching classes. The verified results are:
+
+| Query | Method/semantics | Result | Preferred classes |
+| --- | --- | --- | ---: |
+| `untreated_disease_in_group_a` | ordinary all-world QA | `P(Q) = 0.14000000` | n/a |
+| `untreated_disease_in_group_a` | MCC | `false`, class probability `0.0070214291` | 1 |
+| `untreated_disease_in_group_a` | MPC | `false`, class probability `0.0382277807` | 2 tied classes |
+
+The two MPC classes have the same probability and the same Boolean answer, so
+the preferred-answer set contains one pair even though
+`preferred_class_count` is `2`. As in the MCAR example, these class
+probabilities are not renormalized over the selected classes.
 
 ## Generated logic programs: `.lp` and `.plp`
 

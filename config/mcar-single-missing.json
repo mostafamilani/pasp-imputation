@@ -44,6 +44,11 @@
       }
     ]
   },
+  "preferred_classes": {
+    "enabled_semantics": ["mcc", "mpc"],
+    "mcc_distance": "squared_euclidean",
+    "max_enumerated_worlds": 100000
+  },
   "files": {
     "complete": "data/mcar-single-missing/complete.csv",
     "observed": "data/mcar-single-missing/observed.csv",

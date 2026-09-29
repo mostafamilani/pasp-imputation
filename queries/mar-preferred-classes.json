@@ -1,0 +1,11 @@
+{
+  "queries": [
+    {
+      "name": "untreated_disease_in_group_a",
+      "type": "boolean_conjunctive_query",
+      "atoms": [
+        {"relation": "person", "arguments": ["?id", "a", "yes", "untreated"]}
+      ]
+    }
+  ]
+}

@@ -15,8 +15,10 @@ from pathlib import Path
 from typing import Any
 
 from run_scenario import (
-    ROOT, asp_query, attributes, hydrate_csv_schema, load_json, validate_config
+    ROOT, asp_query, attributes, hydrate_csv_schema, load_json, read_csv,
+    validate_config
 )
+from preferred_classes import answer_preferred_query, enumerate_classes, preferred_classes
 
 
 METHODS = {
@@ -116,6 +118,10 @@ def main() -> None:
         help="QA encoding to run (default: markoview)",
     )
     parser.add_argument("--output", type=Path, help="answer JSON path")
+    parser.add_argument(
+        "--preferred-class", choices=["mcc", "mpc"],
+        help="answer over all tied MCC or MPC matching-world classes",
+    )
     args = parser.parse_args()
 
     config = load_json(args.config.resolve())
@@ -132,6 +138,30 @@ def main() -> None:
     selected_methods = list(METHODS) if args.method == "both" else [args.method]
     log_dir = ROOT / "data" / scenario / "logs"
     answers: list[dict[str, Any]] = []
+
+    if args.preferred_class:
+        observed = read_csv(ROOT / manifest["observed"])
+        blocks = read_csv(ROOT / manifest["blocks"])
+        classes = enumerate_classes(observed, blocks, config)
+        selected = preferred_classes(classes, args.preferred_class, config)
+        for query in queries:
+            answers.append({
+                "query": query["name"], "semantics": args.preferred_class,
+                "preferred_answers": answer_preferred_query(query, selected, config),
+            })
+        output = args.output or ROOT / "data" / scenario / "answers.json"
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(json.dumps({
+            "scenario": scenario, "semantics": args.preferred_class,
+            "preferred_class_count": len(selected), "answers": answers,
+        }, indent=2) + "\n", encoding="utf-8")
+        print("query\tsemantics\tpreferred_answers")
+        for answer in answers:
+            encoded = json.dumps(answer["preferred_answers"], separators=(",", ":"))
+            print(f"{answer['query']}\t{args.preferred_class}\t{encoded}")
+        print(f"preferred_classes={len(selected)}")
+        print(f"answers={output}")
+        return
 
     for query in queries:
         temporary = tempfile.NamedTemporaryFile(

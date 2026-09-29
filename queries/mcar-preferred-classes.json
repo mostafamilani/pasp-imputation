@@ -1,0 +1,11 @@
+{
+  "queries": [
+    {
+      "name": "disease_in_group_b",
+      "type": "boolean_conjunctive_query",
+      "atoms": [
+        {"relation": "person", "arguments": ["?id", "b", "yes"]}
+      ]
+    }
+  ]
+}
